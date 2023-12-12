@@ -1,13 +1,17 @@
 import random
 import os
 import requests
+from urllib import response
+import subprocess
 from flask import Flask, render_template, abort, request
 
-# @TODO Import your Ingestor and MemeEngine classes
+from QuoteEngine import Ingestor
+from QuoteEngine import QuoteModel
+from MemeEngine import MemeGenerator
 
 app = Flask(__name__)
 
-meme = MemeEngine('./static')
+meme = MemeGenerator('./static')
 
 
 def setup():
@@ -18,15 +22,16 @@ def setup():
                    './_data/DogQuotes/DogQuotesPDF.pdf',
                    './_data/DogQuotes/DogQuotesCSV.csv']
 
-    # TODO: Use the Ingestor class to parse all files in the
-    # quote_files variable
-    quotes = None
+    quotes = []
+    for file in quote_files:
+        quotes += Ingestor.parse(file)
+
+    quotes = [q for q in quotes if q is not None]
 
     images_path = "./_data/photos/dog/"
 
-    # TODO: Use the pythons standard library os class to find all
-    # images within the images images_path directory
-    imgs = None
+    for root, _, files in os.walk(images_path):
+        imgs = [os.path.join(root, name) for name in files]
 
     return quotes, imgs
 
@@ -38,14 +43,11 @@ quotes, imgs = setup()
 def meme_rand():
     """ Generate a random meme """
 
-    # @TODO:
-    # Use the random python standard library class to:
-    # 1. select a random image from imgs array
-    # 2. select a random quote from the quotes array
-
-    img = None
-    quote = None
+    img = random.choice(imgs)
+    quote = random.choice(quotes)
+    assert quote is not None
     path = meme.make_meme(img, quote.body, quote.author)
+    print(path)
     return render_template('meme.html', path=path)
 
 
@@ -59,17 +61,24 @@ def meme_form():
 def meme_post():
     """ Create a user defined meme """
 
-    # @TODO:
-    # 1. Use requests to save the image from the image_url
-    #    form param to a temp local file.
-    # 2. Use the meme object to generate a meme using this temp
-    #    file and the body and author form paramaters.
-    # 3. Remove the temporary saved image.
+    image_url = request.form['image_url']
+    response = requests.get(image_url)
 
-    path = None
+    local_img = f'temp{random.randint(0, 1000)}.png'
+    with open(local_img, 'wb') as fid:
+        fid.write(response.content)
+
+    quote_body = request.form['body']
+    quote_author = request.form['author']
+    quote = QuoteModel(quote_body, quote_author)
+
+    path = meme.make_meme(local_img, quote.body, quote.author)
+
+    subprocess.run(['del', local_img], shell=True)
 
     return render_template('meme.html', path=path)
 
 
 if __name__ == "__main__":
+    """ Use app.run(host="0.0.0.0") if you are using WSL"""
     app.run()
