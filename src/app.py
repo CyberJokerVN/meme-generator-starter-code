@@ -80,5 +80,4 @@ def meme_post():
 
 
 if __name__ == "__main__":
-    """ Use app.run(host="0.0.0.0") if you are using WSL"""
     app.run()
